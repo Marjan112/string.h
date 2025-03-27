@@ -17,8 +17,6 @@ typedef struct {
     size_t capacity;
 } String;
 
-#ifndef STRING_IMPLEMENTATION
-
 void string_reserve(String* string, size_t reserve);
 
 void string_append_char(String* string, char ch);
@@ -56,7 +54,7 @@ String double_to_string(double value);
 void string_reset(String* string);
 void string_free(String* string);
 
-#else
+#ifdef STRING_IMPLEMENTATION
 
 void string_reserve(String* string, size_t reserve) {
     if(reserve > string->capacity) {
@@ -83,7 +81,7 @@ void string_append_cstr_size(String* string, const char* cstr, size_t cstr_len) 
         assert(string->data != NULL);
     }
     
-    for(int i = 0; i < cstr_len; ++i) {
+    for(size_t i = 0; i < cstr_len; ++i) {
         string->data[string->count++] = cstr[i];
     }
 }
@@ -189,27 +187,35 @@ bool string_read_entire_file(String* string, const char* filename) {
         return false;
     }
 
-    size_t m = ftell(file);
+#ifdef _WIN32
+    int64_t m = _ftelli64(file);
+#else
+    int64_t m = ftell(file);
+#endif /* _WIN32 */
     if(m < 0) {
         fprintf(stderr, "[ERROR]: Could not read file \"%s\". Reason: %s\n", filename, strerror(errno));
         fclose(file);
         return false;
     }
 
+#ifdef _WIN32
+    if(_fseeki64(file, 0, SEEK_SET) < 0) {
+#else
     if(fseek(file, 0, SEEK_SET) < 0) {
+#endif /* _WIN32 */
         fprintf(stderr, "[ERROR]: Could not read file \"%s\". Reason: %s\n", filename, strerror(errno));
         fclose(file);
         return false;
     }
 
-    size_t new_count = string->count + m;
+    size_t new_count = string->count + (size_t)m;
     if(new_count >= string->capacity) {
         string->data = (char*)realloc(string->data, new_count);
         assert(string->data != NULL);
         string->capacity = new_count;
     }
 
-    fread(string->data + string->count, m, 1, file);
+    fread(string->data + string->count, (size_t)m, 1, file);
     if(ferror(file)) {
         fprintf(stderr, "[ERROR]: Could not read file \"%s\". Reason: Unknown\n", filename);
         fclose(file);
@@ -231,7 +237,11 @@ int64_t string_to_int64(String string) {
     string_copy(&str_copy, string);
     string_append_null(&str_copy);
 
-    long num = strtol(str_copy.data, NULL, 10);
+#ifdef _WIN32
+    int64_t num = _strtoi64(str_copy.data, NULL, 10);
+#else
+    int64_t num = strtol(str_copy.data, NULL, 10);
+#endif /* _WIN32 */
     string_free(&str_copy);
     return num;
 }
@@ -268,7 +278,11 @@ String int64_to_string(int64_t value) {
     String result = {0};
     string_reserve(&result, DEFAULT_STRING_CAPACITY);
 
+#ifdef _WIN32
+    result.count = sprintf(result.data, "%lld", value);
+#else
     result.count = sprintf(result.data, "%ld", value);
+#endif /* _WIN32 */
     return result;
 }
 
