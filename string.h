@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -26,6 +26,7 @@ void string_append_string(String* string, String other_string);
 void string_append_null(String* string);
 void string_append_int64(String* string, int64_t value);
 void string_append_double(String* string, double value);
+int string_appendf(String* string, const char* fmt, ...);
 
 void string_insert_char(String* string, size_t index, char ch);
 void string_insert_cstr_size(String* string, size_t index, const char* cstr, size_t cstr_len);
@@ -110,7 +111,25 @@ void string_append_double(String* string, double value) {
     string_free(&string_value);
 }
 
-void string_insert_char(String *string, size_t index, char ch) {
+int string_appendf(String* string, const char* fmt, ...) {
+    va_list args;
+    
+    va_start(args, fmt);
+    int n = vsnprintf(NULL, 0, fmt, args);
+    va_end(args);
+
+    string_reserve(string, string->count + n + 1);
+
+    va_start(args, fmt);
+    vsprintf(string->data + string->count, fmt, args);
+    va_end(args);
+
+    string->count += n;
+
+    return n;
+}
+
+void string_insert_char(String* string, size_t index, char ch) {
     assert(index < string->count);
 
     if(string->count >= string->capacity) {
@@ -276,21 +295,19 @@ void string_reverse(String* string) {
 
 String int64_to_string(int64_t value) {
     String result = {0};
-    string_reserve(&result, DEFAULT_STRING_CAPACITY);
 
 #ifdef _WIN32
-    result.count = sprintf(result.data, "%lld", value);
+    string_appendf(&result, "%lld", value);
 #else
-    result.count = sprintf(result.data, "%ld", value);
+    string_appendf(&result, "%ld", value);
 #endif /* _WIN32 */
+
     return result;
 }
 
 String double_to_string(double value) {
     String result = {0};
-    string_reserve(&result, DEFAULT_STRING_CAPACITY);
-
-    result.count = sprintf(result.data, "%lf", value);
+    string_appendf(&result, "%lf", value);
     return result;
 }
 
