@@ -6,7 +6,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include <errno.h>
 #include <assert.h>
 
 #define DEFAULT_STRING_CAPACITY 256
@@ -195,37 +194,21 @@ void string_copy(String* string, String other) {
 // Implementation stolen from https://github.com/tsoding/nob.h/blob/main/nob.h - nob_read_entire_file
 bool string_read_entire_file(String* string, const char* filename) {
     FILE* file = fopen(filename, "r");
-    if(file == NULL) {
-        fprintf(stderr, "[ERROR]: Could not read file \"%s\". Reason: %s\n", filename, strerror(errno));
-        return false;
-    }
-
-    if(fseek(file, 0, SEEK_END) < 0) {
-        fprintf(stderr, "[ERROR]: Could not read file \"%s\". Reason: %s\n", filename, strerror(errno));
-        fclose(file);
-        return false;
-    }
+    if(file == NULL) return false;
+    if(fseek(file, 0, SEEK_END) < 0) return false;
 
 #ifdef _WIN32
     int64_t m = _ftelli64(file);
 #else
     int64_t m = ftell(file);
 #endif /* _WIN32 */
-    if(m < 0) {
-        fprintf(stderr, "[ERROR]: Could not read file \"%s\". Reason: %s\n", filename, strerror(errno));
-        fclose(file);
-        return false;
-    }
+    if(m < 0) return false;
 
 #ifdef _WIN32
-    if(_fseeki64(file, 0, SEEK_SET) < 0) {
+    if(_fseeki64(file, 0, SEEK_SET) < 0) return false;
 #else
-    if(fseek(file, 0, SEEK_SET) < 0) {
+    if(fseek(file, 0, SEEK_SET) < 0) return false;
 #endif /* _WIN32 */
-        fprintf(stderr, "[ERROR]: Could not read file \"%s\". Reason: %s\n", filename, strerror(errno));
-        fclose(file);
-        return false;
-    }
 
     size_t new_count = string->count + (size_t)m;
     if(new_count >= string->capacity) {
@@ -235,11 +218,7 @@ bool string_read_entire_file(String* string, const char* filename) {
     }
 
     fread(string->data + string->count, (size_t)m, 1, file);
-    if(ferror(file)) {
-        fprintf(stderr, "[ERROR]: Could not read file \"%s\". Reason: Unknown\n", filename);
-        fclose(file);
-        return false;
-    }
+    if(ferror(file)) return false;
 
     string->count = new_count;
 
