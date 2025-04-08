@@ -195,20 +195,30 @@ void string_copy(String* string, String other) {
 bool string_read_entire_file(String* string, const char* filename) {
     FILE* file = fopen(filename, "r");
     if(file == NULL) return false;
-    if(fseek(file, 0, SEEK_END) < 0) return false;
+
+    if(fseek(file, 0, SEEK_END) < 0) {
+        fclose(file);
+        return false;
+    }
 
 #ifdef _WIN32
     int64_t m = _ftelli64(file);
 #else
     int64_t m = ftell(file);
 #endif /* _WIN32 */
-    if(m < 0) return false;
+    if(m < 0) {
+        fclose(file);
+        return false;
+    }
 
 #ifdef _WIN32
-    if(_fseeki64(file, 0, SEEK_SET) < 0) return false;
+    if(_fseeki64(file, 0, SEEK_SET) < 0) {
 #else
-    if(fseek(file, 0, SEEK_SET) < 0) return false;
+    if(fseek(file, 0, SEEK_SET)) {
 #endif /* _WIN32 */
+        fclose(file);
+        return false;
+    }
 
     size_t new_count = string->count + (size_t)m;
     if(new_count >= string->capacity) {
@@ -218,7 +228,10 @@ bool string_read_entire_file(String* string, const char* filename) {
     }
 
     fread(string->data + string->count, (size_t)m, 1, file);
-    if(ferror(file)) return false;
+    if(ferror(file)) {
+        fclose(file);
+        return false;
+    }
 
     string->count = new_count;
 
